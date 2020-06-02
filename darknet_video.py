@@ -84,11 +84,12 @@ def YOLO():
     darknet_image = darknet.make_image(darknet.network_width(netMain),
                                     darknet.network_height(netMain),3)
     #cap = cv2.VideoCapture(0)
-    cap = cv2.VideoCapture("test.wmv")
+    cap = cv2.VideoCapture("test.mp4")
     cap.set(3, 1280)
     cap.set(4, 720)
+
     out = cv2.VideoWriter(
-        "output.avi", cv2.VideoWriter_fourcc(*"MJPG"), 10.0,
+        "output.avi", cv2.VideoWriter_fourcc(*"MJPG"), 30,
         (darknet.network_width(netMain), darknet.network_height(netMain)))
     print("Starting the YOLO loop...")
 
@@ -114,7 +115,6 @@ def YOLO():
         print(1/(time.time()-prev_time))
         
         ret, frame_read = cap.read()
-        print(ret)
         #cv2.imshow('Demo', image)
         #cv2.waitKey(3)
     cap.release()
