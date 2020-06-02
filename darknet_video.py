@@ -92,7 +92,8 @@ def YOLO():
         "output.avi", cv2.VideoWriter_fourcc(*"MJPG"), 30,
         (darknet.network_width(netMain), darknet.network_height(netMain)))
     print("Starting the YOLO loop...")
-
+    print("width =",darknet.network_width(netMain), "height=", darknet.network_height(netMain))
+    
     ret, frame_read = cap.read()
     while ret:
         prev_time = time.time()
