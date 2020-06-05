@@ -361,7 +361,6 @@ def performDetect(imagePath="data/dog.jpg", thresh= 0.25, configPath = "./cfg/yo
         }
     """
     # Import the global variables. This lets us instance Darknet once, then just call performDetect() again without instancing again
-    print("hello world!!!")
     global metaMain, netMain, altNames #pylint: disable=W0603
     assert 0 < thresh < 1, "Threshold should be a float between zero and one (non-inclusive)"
     if not os.path.exists(configPath):
