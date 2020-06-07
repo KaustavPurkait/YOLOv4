@@ -7,6 +7,7 @@ import numpy as np
 import time
 import darknet
 from collections import defaultdict
+import argparse
 import  distance
 
 def convertBack(x, y, w, h):
@@ -29,6 +30,8 @@ def cvDrawBoxes(detections, img,colour = None):
         pt2 = (xmax, ymax)
         if colour == 'red':
             cv2.rectangle(img, pt1, pt2, (255, 0, 0), 1)
+#            cv2.putText(img, str(round(detection[1] * 100, 2)),
+#                        (pt1[0], pt1[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, [255, 0, 0], 2)
         else:
             cv2.rectangle(img, pt1, pt2, (0, 255, 0), 1)
 ##        cv2.putText(img,
@@ -44,7 +47,7 @@ metaMain = None
 altNames = None
 
 
-def YOLO():
+def YOLO(args):
 
     global metaMain, netMain, altNames
     configPath = "./cfg/yolov4.cfg"
@@ -89,7 +92,7 @@ def YOLO():
     darknet_image = darknet.make_image(darknet.network_width(netMain),
                                     darknet.network_height(netMain),3)
     #cap = cv2.VideoCapture(0)
-    cap = cv2.VideoCapture("test.mp4")
+    cap = cv2.VideoCapture(args.input)
     cap.set(3, 1280)
     cap.set(4, 720)
 
@@ -97,14 +100,15 @@ def YOLO():
 ##        "output.avi", cv2.VideoWriter_fourcc(*"MJPG"), 30,
 ##        (darknet.network_width(netMain), darknet.network_height(netMain)))
     
-    out = cv2.VideoWriter(
-        "output.mp4", cv2.VideoWriter_fourcc(*"MP4V"), 30,
-        (1280, 720))
+    out = cv2.VideoWriter(args.output, cv2.VideoWriter_fourcc(*"mp4v"), 30,(1280, 720))
     
     print("Starting the YOLO loop...")
     print("width =",darknet.network_width(netMain), "height=", darknet.network_height(netMain))
     
     ret, frame_read = cap.read()
+    frame_count = 0
+
+    start_time = time.time()
     while ret:
         prev_time = time.time()
         frame_rgb = cv2.cvtColor(frame_read, cv2.COLOR_BGR2RGB)
@@ -117,25 +121,50 @@ def YOLO():
         darknet.copy_image_from_bytes(darknet_image,frame_resized.tobytes())
 
         detections = darknet.detect_image(netMain, metaMain, darknet_image, thresh=0.35)
-        detections  = [i for i in detections if i[0].decode('ASCII')=='person']
-        
-        #print(detections)
-        violations,non_violations = distance.calc_distance(detections,darknet.network_height(netMain))
 
-        image = cvDrawBoxes(violations, frame_resized, colour = "red")
-        image = cvDrawBoxes(non_violations, frame_resized)
+        #detections  = [i for i in detections if i[0].decode('ASCII')=='person']
+        persons  = [i for i in detections if i[0].decode('ASCII')  == 'person']
+        motorbikes  = [i for i in detections if i[0].decode('ASCII')  == 'motorbike']
+        
+        #image = cvDrawBoxes(persons, frame_resized)
+        #image = cvDrawBoxes(motorbikes, image, 'red')
+        #print(detections)
+        
+        if motorbikes:
+              persons = distance.combine(persons,motorbikes,darknet.network_height(netMain),
+                                            darknet.network_width(netMain))
+        image = cvDrawBoxes(persons, frame_resized)  
+         
+#        violations,non_violations = distance.calc_distance(persons,darknet.network_height(netMain))
+#
+#        image = cvDrawBoxes(violations, frame_resized, colour = "red")
+#        image = cvDrawBoxes(non_violations, frame_resized)
+
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = cv2.resize(image,(1280,720), interpolation=cv2.INTER_LINEAR)
 
         out.write(image)
         
         print(1/(time.time()-prev_time))
-        
+        frame_count+=1
+#        if frame_count>=100:
+#              print(detections)
+#              cv2.imwrite('../image.jpg', image)
+#              break
         ret, frame_read = cap.read()
-#        cv2.imwrite('../image.jpg', image)
-#        break
+        
+
     cap.release()
     out.release()
+    print('Average fps: ', 1/((time.time()-start_time)/frame_count))
 
 if __name__ == "__main__":
-    YOLO()
+    parser = argparse.ArgumentParser() 
+    # Adding optional argument 
+    parser.add_argument("-o", "--output", default = 'output.mp4', help = "Give output path")
+    parser.add_argument("-i", "--input", default = 'test.mp4', help = "Give input path")
+    
+    # Read arguments from command line 
+    args = parser.parse_args() 
+    
+    YOLO(args)
