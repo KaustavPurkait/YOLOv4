@@ -67,6 +67,7 @@ def YOLO(args):
             "ascii"), weightPath.encode("ascii"), 0, 1)  # batch size = 1
     if metaMain is None:
         metaMain = darknet.load_meta(metaPath.encode("ascii"))
+
     if altNames is None:
         try:
             with open(metaPath) as metaFH:
@@ -91,8 +92,10 @@ def YOLO(args):
     # Create an image we reuse for each detect
     darknet_image = darknet.make_image(darknet.network_width(netMain),
                                     darknet.network_height(netMain),3)
+
     #cap = cv2.VideoCapture(0)
     cap = cv2.VideoCapture(args.input)
+    
     cap.set(3, 1280)
     cap.set(4, 720)
 
@@ -111,6 +114,7 @@ def YOLO(args):
     start_time = time.time()
     while ret:
         prev_time = time.time()
+        
         frame_rgb = cv2.cvtColor(frame_read, cv2.COLOR_BGR2RGB)
         
         frame_resized = cv2.resize(frame_rgb,
@@ -143,14 +147,16 @@ def YOLO(args):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = cv2.resize(image,(1280,720), interpolation=cv2.INTER_LINEAR)
 
+##        if frame_count>=515:
+##              cv2.imwrite('../result.jpg', image)
+##              break
+
         out.write(image)
         
         print(1/(time.time()-prev_time))
         frame_count+=1
-#        if frame_count>=100:
-#              print(detections)
-#              cv2.imwrite('../image.jpg', image)
-#              break
+        
+
         ret, frame_read = cap.read()
         
 
