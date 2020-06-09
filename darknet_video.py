@@ -124,7 +124,7 @@ def YOLO(args):
 
         #detections  = [i for i in detections if i[0].decode('ASCII')=='person']
         persons  = [i for i in detections if i[0].decode('ASCII')  == 'person']
-        motorbikes  = [i for i in detections if i[0].decode('ASCII')  == 'motorbike']
+        motorbikes  = [i for i in detections if i[0].decode('ASCII') in ('motorbike','bicycle')]
         
         #image = cvDrawBoxes(persons, frame_resized)
         #image = cvDrawBoxes(motorbikes, image, 'red')
