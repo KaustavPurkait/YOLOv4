@@ -129,8 +129,8 @@ def YOLO(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser() 
     # Adding optional argument 
-    parser.add_argument("-o", "--output", default = '../image.jpg', help = "Give output path")
-    parser.add_argument("-i", "--input", default = '../result.jpg', help = "Give input path")
+    parser.add_argument("-o", "--output", default = '../result.jpg', help = "Give output path")
+    parser.add_argument("-i", "--input", default = '../image.jpg', help = "Give input path")
     
     # Read arguments from command line 
     args = parser.parse_args() 
