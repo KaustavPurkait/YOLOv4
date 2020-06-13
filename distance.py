@@ -16,7 +16,10 @@ def approx_area(to_check,left,right):
       sqrt_area_left = np.sqrt(left[2][2]*left[2][3])
       sqrt_area_right = np.sqrt(right[2][2]*right[2][3])
       
-      approx = (dist_left*sqrt_area_right + dist_right*sqrt_area_left)/(dist_left+dist_right)
+      if dist_left+dist_right>0:
+            approx = (dist_left*sqrt_area_right + dist_right*sqrt_area_left)/(dist_left+dist_right)
+      else:
+            approx = (sqrt_area_right + sqrt_area_left)/2
       return approx
       
 
@@ -42,7 +45,7 @@ def validate_area(detections,dims):
 
 
 
-def combine(persons,motorbikes,total_height,total_width):
+def combine(persons,motorbikes):
       """ This function combines the detection of persons and motorbike to get
       greater number of predictions and more accurate readings of the height of
       person riding a motorbike. Returns combined detection arrays of """
@@ -72,6 +75,15 @@ def combine(persons,motorbikes,total_height,total_width):
                               #print(temp,persons[dists[0]])
                               
       motorbikes = list(set(motorbikes).difference(to_drop))
+      
+      to_drop = set()
+      for motorbike in motorbikes:
+            if motorbike[2][3]/motorbike[2][2] >= 2:
+                  persons.append(motorbike)
+                  to_drop.add(motorbike)
+      
+      motorbikes = list(set(motorbikes).difference(to_drop))
+      
       return motorbikes,persons
                               
 
@@ -153,4 +165,4 @@ detections = [(b'person', 0.9287652373313904, (117.55171966552734, 357.068328857
 persons  = [i for i in detections if i[0].decode('ASCII')  == 'person']
 motorbikes  = [i for i in detections if i[0].decode('ASCII')  == 'motorbike']
 
-combine(persons,motorbikes,608,608)
+combine(persons,motorbikes)

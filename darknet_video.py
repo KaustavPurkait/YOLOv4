@@ -166,10 +166,9 @@ def YOLO(args):
         
         #print(detections)
         
-#        if motorbikes:
-#              motorbikes,persons = distance.combine(persons,motorbikes,
-#                                                    darknet.network_height(netMain),
-#                                                    darknet.network_width(netMain))
+        if motorbikes:
+              motorbikes,persons = distance.combine(persons,motorbikes)
+        
         image = cvDrawBoxes(persons, frame_resized)
         image = cvDrawBoxes(motorbikes, image, 'red')
          
