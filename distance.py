@@ -9,6 +9,39 @@ from collections import OrderedDict,defaultdict
 from bisect import bisect_left,bisect_right
 
 
+def approx_area(to_check,left,right):
+      dist_left = to_check[2][1]-left[2][1]
+      dist_right = right[2][1]-to_check[2][1]
+      
+      sqrt_area_left = np.sqrt(left[2][2]*left[2][3])
+      sqrt_area_right = np.sqrt(right[2][2]*right[2][3])
+      
+      approx = (dist_left*sqrt_area_right + dist_right*sqrt_area_left)/(dist_left+dist_right)
+      return approx
+      
+
+def validate_area(detections,dims):
+      """Calculates approx height based on h values and y coordinates"""
+      invalid = set()
+      detections = list(filter(lambda x: x[2][2]*x[2][3] < 0.2*dims[0]*dims[1],detections))
+      
+      if len(detections)>=3:
+            detections.sort(key= lambda x: x[2][1])
+            for num,detection in enumerate(detections):
+                  if (num-1) >= 0 and (num+1) <= len(detections)-1 :
+                        area = approx_area(detection,detections[num-1],detections[num+1])
+                  elif (num-1) < 0:
+                        area = approx_area(detection,detections[num+1],detections[num+2])
+                  else:
+                        area = approx_area(detection,detections[num-2],detections[num-1])
+                  
+                  if np.sqrt(detection[2][3]*detection[2][2])/area > 2:
+                        invalid.add(detection)
+      
+      return list(set(detections).difference(invalid))
+
+
+
 def combine(persons,motorbikes,total_height,total_width):
       """ This function combines the detection of persons and motorbike to get
       greater number of predictions and more accurate readings of the height of
@@ -27,7 +60,7 @@ def combine(persons,motorbikes,total_height,total_width):
                   if left_ind != right_ind :
                         dists = [(num,j-i[2][1]) for num,j in             
                                  enumerate(persons_y[left_ind:right_ind],start= left_ind)
-                                 if j>(i[2][1]-1.1*i[2][3]) and j<i[2][1]]
+                                 if j>(i[2][1]-1*i[2][3]) and j<i[2][1]]
                         if dists:
                               dists = max(dists,key= lambda x:x[1])
                               to_drop.add(i)
@@ -39,17 +72,32 @@ def combine(persons,motorbikes,total_height,total_width):
                               #print(temp,persons[dists[0]])
                               
       motorbikes = list(set(motorbikes).difference(to_drop))
-      return persons
+      return motorbikes,persons
                               
-                              
-
-
-
 
 def calc_distance(detections,height):
-      """ detections is a list of all detections found in a frame
-      of the form (object,confidence,(x,y,w,h)). This function returns the 
-      detections which have violated and ones which havent"""
+      """ 
+      Function to calculate the detections found to be in violation of 
+      social distancing
+      
+      Parameters
+      ----------------------------------------------------
+      detections: iter
+            List of detections containing object name, confidence level
+            and (x_cord,y_cord,width,height) of the bounding box
+      
+      height: integer
+            Total height in pixels of the frame
+            
+      Returns
+      ----------------------------------------------------
+      violations: iter
+            List of detections which were found to be violating the distance
+            measure
+      
+      Non-violations: iter
+            List of detections which were not violating the distance measure
+      """
       
       ranges = [i for i in range(int(height/8),height+1,int(height/8))]
 
@@ -86,6 +134,17 @@ def calc_distance(detections,height):
       non_violations_set = set(detections_updated).difference(violations_set)
       return list(violations_set),list(non_violations_set)
       
+
+
+
+
+
+
+
+
+
+
+
 
 #calc_distance([(b'person', 0.9359182119369507, (65.48546600341797, 377.8138122558594, 13.299861907958984, 68.51302337646484)), (b'person', 0.7065868973731995, (364.851806640625, 362.12603759765625, 10.6348876953125, 44.321414947509766)), (b'person', 0.6553335785865784, (367.4599304199219, 302.4787292480469, 7.2274322509765625, 27.225645065307617)), (b'person', 0.6338825225830078, (98.61302185058594, 378.11175537109375, 10.23060131072998, 60.04832458496094)), (b'person', 0.5679501295089722, (268.466552734375, 316.7518615722656, 9.496596336364746, 33.531333923339844)), (b'person', 0.5622066259384155, (342.1731262207031, 429.3646240234375, 17.699085235595703, 56.791690826416016)), (b'person', 0.4988653361797333, (253.48260498046875, 282.7754821777344, 5.330770015716553, 24.58672523498535)), (b'person', 0.4853569567203522, (339.87677001953125, 347.426513671875, 10.744488716125488, 22.269214630126953)), (b'person', 0.4652334749698639, (109.78838348388672, 358.4297180175781, 9.001030921936035, 59.537471771240234)), (b'person', 0.34086450934410095, (269.6197204589844, 282.42388916015625, 6.279255390167236, 22.353992462158203)), (b'person', 0.30431637167930603, (281.0084228515625, 270.2095947265625, 4.727065086364746, 19.621034622192383))],608)
       

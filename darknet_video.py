@@ -8,7 +8,7 @@ import time
 import darknet
 from collections import defaultdict
 import argparse
-import  distance
+import distance
 
 def convertBack(x, y, w, h):
     xmin = int(round(x - (w / 2)))
@@ -40,6 +40,22 @@ def cvDrawBoxes(detections, img,colour = None):
 ##                    (pt1[0], pt1[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
 ##                    [0, 255, 0], 2)
     return img
+
+
+
+def unsharp_mask(image, kernel_size=(5, 5), sigma=1.0, amount=1.0, threshold=0):
+      # Reduces fps by 2-2.5 fps
+    """Return a sharpened version of the image, using an unsharp mask."""
+    blurred = cv2.GaussianBlur(image, kernel_size, sigma)
+    sharpened = float(amount + 1) * image - float(amount) * blurred
+    sharpened = np.maximum(sharpened, np.zeros(sharpened.shape))
+    sharpened = np.minimum(sharpened, 255 * np.ones(sharpened.shape))
+    sharpened = sharpened.round().astype(np.uint8)
+    if threshold > 0:
+        low_contrast_mask = np.absolute(image - blurred) < threshold
+        np.copyto(sharpened, image, where=low_contrast_mask)
+    return sharpened
+
 
 
 netMain = None
@@ -98,46 +114,64 @@ def YOLO(args):
     
     cap.set(3, 1280)
     cap.set(4, 720)
-
-##    out = cv2.VideoWriter(
-##        "output.avi", cv2.VideoWriter_fourcc(*"MJPG"), 30,
-##        (darknet.network_width(netMain), darknet.network_height(netMain)))
     
-    out = cv2.VideoWriter(args.output, cv2.VideoWriter_fourcc(*"mp4v"), 30,(1280, 720))
+    #out = cv2.VideoWriter(args.output, cv2.VideoWriter_fourcc(*"mp4v"), 30,(1280, 720))
     
     print("Starting the YOLO loop...")
     print("width =",darknet.network_width(netMain), "height=", darknet.network_height(netMain))
     
+    model_w = darknet.network_width(netMain)
+    model_h = darknet.network_height(netMain)
+    
+    
     ret, frame_read = cap.read()
     frame_count = 0
+    
+    frame_h,frame_w,_ = frame_read.shape
+    
+    scale_h = frame_h/model_h
+    scale_w = frame_w/model_w
+    
+    scaling_factor = max(scale_h,scale_w)
+    resize_dim = (round(frame_w/scaling_factor),round(frame_h/scaling_factor))
 
+    out = cv2.VideoWriter(args.output, cv2.VideoWriter_fourcc(*"mp4v"), 30, resize_dim)
+    
     start_time = time.time()
+    
     while ret:
         prev_time = time.time()
         
         frame_rgb = cv2.cvtColor(frame_read, cv2.COLOR_BGR2RGB)
         
-        frame_resized = cv2.resize(frame_rgb,
-                                   (darknet.network_width(netMain),
-                                    darknet.network_height(netMain)),
-                                   interpolation=cv2.INTER_LINEAR)
+        # changing interpolation from cv2.INTER_LINEAR to cv2.INTER_AREA reduces fps by 1
+        frame_resized = cv2.resize(frame_rgb,resize_dim,interpolation=cv2.INTER_AREA)
+
+        frame_resized = unsharp_mask(frame_resized)
+        
+        frame_resized = cv2.copyMakeBorder(frame_resized,0,model_h-resize_dim[1],
+                                           0,0,cv2.BORDER_CONSTANT)
         
         darknet.copy_image_from_bytes(darknet_image,frame_resized.tobytes())
 
-        detections = darknet.detect_image(netMain, metaMain, darknet_image, thresh=0.35)
-
-        #detections  = [i for i in detections if i[0].decode('ASCII')=='person']
-        persons  = [i for i in detections if i[0].decode('ASCII')  == 'person']
-        motorbikes  = [i for i in detections if i[0].decode('ASCII') in ('motorbike','bicycle')]
+        detections = darknet.detect_image(netMain, metaMain, darknet_image, thresh=0.3)
         
-        #image = cvDrawBoxes(persons, frame_resized)
-        #image = cvDrawBoxes(motorbikes, image, 'red')
+
+
+        persons  = [i for i in detections if i[0].decode('ASCII')  == 'person']
+        persons = distance.validate_area(persons,resize_dim)
+        
+        motorbikes  = [i for i in detections if i[0].decode('ASCII') in ('motorbike','bicycle')]
+        motorbikes = distance.validate_area(motorbikes,resize_dim)
+        
         #print(detections)
         
-        if motorbikes:
-              persons = distance.combine(persons,motorbikes,darknet.network_height(netMain),
-                                            darknet.network_width(netMain))
-        image = cvDrawBoxes(persons, frame_resized)  
+#        if motorbikes:
+#              motorbikes,persons = distance.combine(persons,motorbikes,
+#                                                    darknet.network_height(netMain),
+#                                                    darknet.network_width(netMain))
+        image = cvDrawBoxes(persons, frame_resized)
+        image = cvDrawBoxes(motorbikes, image, 'red')
          
 #        violations,non_violations = distance.calc_distance(persons,darknet.network_height(netMain))
 #
@@ -145,20 +179,17 @@ def YOLO(args):
 #        image = cvDrawBoxes(non_violations, frame_resized)
 
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        image = cv2.resize(image,(1280,720), interpolation=cv2.INTER_LINEAR)
-
-##        if frame_count>=515:
-##              cv2.imwrite('../result.jpg', image)
-##              break
+        
+        image = image[:resize_dim[1],:]
+        
+        #image = cv2.resize(image,(frame_w,frame_h), interpolation=cv2.INTER_LINEAR)
 
         out.write(image)
         
-        print(1/(time.time()-prev_time))
+        print(round(1/(time.time()-prev_time),1))
+        
         frame_count+=1
-        
-
         ret, frame_read = cap.read()
-        
 
     cap.release()
     out.release()

@@ -10,6 +10,19 @@ from collections import defaultdict
 import argparse
 import  distance
 
+
+def unsharp_mask(image, kernel_size=(5, 5), sigma=1.0, amount=1.0, threshold=0):
+    """Return a sharpened version of the image, using an unsharp mask."""
+    blurred = cv2.GaussianBlur(image, kernel_size, sigma)
+    sharpened = float(amount + 1) * image - float(amount) * blurred
+    sharpened = np.maximum(sharpened, np.zeros(sharpened.shape))
+    sharpened = np.minimum(sharpened, 255 * np.ones(sharpened.shape))
+    sharpened = sharpened.round().astype(np.uint8)
+    if threshold > 0:
+        low_contrast_mask = np.absolute(image - blurred) < threshold
+        np.copyto(sharpened, image, where=low_contrast_mask)
+    return sharpened
+
 def convertBack(x, y, w, h):
     xmin = int(round(x - (w / 2)))
     xmax = int(round(x + (w / 2)))
@@ -95,6 +108,13 @@ def YOLO(args):
     print("width =",darknet.network_width(netMain), "height=", darknet.network_height(netMain))
     
     frame_rgb = cv2.cvtColor(frame_read, cv2.COLOR_BGR2RGB)
+    
+    frame_rgb = unsharp_mask(frame_rgb)
+    
+    h,w,c = frame_rgb.shape
+    mx = max(h,w)
+    frame_rgb = cv2.copyMakeBorder(frame_rgb,0,mx-h,mx-w,0,cv2.BORDER_CONSTANT)
+    
         
     frame_resized = cv2.resize(frame_rgb,(darknet.network_width(netMain),
                                           darknet.network_height(netMain)), 
@@ -122,7 +142,10 @@ def YOLO(args):
 #    image = cvDrawBoxes(non_violations, frame_resized)
       
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    image = cv2.resize(image,(1280,720), interpolation=cv2.INTER_LINEAR)
+    
+    image = cv2.resize(image,(mx,mx), interpolation=cv2.INTER_LINEAR)
+    image = image[:h,:w]
+    #image = cv2.resize(image,(1280,720), interpolation=cv2.INTER_LINEAR)
       
     cv2.imwrite(args.output, image)
 
